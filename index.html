@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Note Vault — 知识串联系统</title>
+  <script src="https://cdn.jsdelivr.net/npm/d3@7/dist/d3.min.js"></script>
+  <link rel="stylesheet" href="src/style.css" />
+</head>
+<body>
+  <div id="app">
+    <!-- Sidebar -->
+    <aside id="sidebar">
+      <div class="logo">
+        <span class="logo-icon">◈</span>
+        <span class="logo-text">Note Vault</span>
+      </div>
+      <nav class="nav">
+        <button class="nav-item active" data-view="dashboard">
+          <span class="nav-icon">⊞</span> 总览
+        </button>
+        <button class="nav-item" data-view="goals">
+          <span class="nav-icon">◎</span> 目标
+        </button>
+        <button class="nav-item" data-view="sources">
+          <span class="nav-icon">⊟</span> 文章
+        </button>
+        <button class="nav-item" data-view="notes">
+          <span class="nav-icon">◇</span> 重点卡片
+        </button>
+        <button class="nav-item" data-view="graph">
+          <span class="nav-icon">⋈</span> 知识图谱
+        </button>
+        <button class="nav-item" data-view="search">
+          <span class="nav-icon">⊙</span> 检索
+        </button>
+      </nav>
+      <div class="sidebar-footer">
+        <button class="btn-ghost" id="btn-export">导出数据</button>
+        <button class="btn-ghost" id="btn-import">导入数据</button>
+        <input type="file" id="import-file" accept=".json,.md" style="display:none" />
+      </div>
+    </aside>
+
+    <!-- Main -->
+    <main id="main">
+      <div id="view-container"></div>
+    </main>
+  </div>
+
+  <!-- Modals -->
+  <div id="modal-overlay" class="hidden">
+    <div id="modal-box">
+      <div id="modal-content"></div>
+    </div>
+  </div>
+
+  <!-- Toast -->
+  <div id="toast"></div>
+
+  <script type="module" src="src/app.js"></script>
+</body>
+</html>
