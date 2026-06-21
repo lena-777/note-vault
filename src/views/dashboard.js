@@ -81,7 +81,7 @@ export function bindDashboard() {
     navigate('goals', { action: 'new' });
   });
   document.querySelectorAll('[data-goto-goal]').forEach(el => {
-    el.addEventListener('click', () => navigate('goal-detail', { id: el.dataset.gotoGoal }));
+    el.addEventListener('click', () => navigate('mindmap', { id: el.dataset.gotoGoal }));
   });
   document.getElementById('dash-export')?.addEventListener('click', () => {
     import('../app.js').then(m => m.showExportModal?.());

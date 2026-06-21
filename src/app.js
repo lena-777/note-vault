@@ -1,5 +1,6 @@
 import { renderDashboard, bindDashboard } from './views/dashboard.js';
 import { renderGoals, bindGoals, renderGoalDetail, bindGoalDetail } from './views/goals.js';
+import { renderMindmap, bindMindmap } from './views/mindmap.js';
 import { renderSources, bindSources, showSourceModal } from './views/sources.js';
 import { renderNotes, bindNotes, showNoteModal } from './views/notes.js';
 import { renderGraph, bindGraph } from './views/graph.js';
@@ -24,7 +25,7 @@ function updateNav(view) {
     const v = el.dataset.view;
     if (
       v === view ||
-      (v === 'goals' && (view === 'goal-detail')) ||
+      (v === 'goals' && (view === 'goal-detail' || view === 'mindmap')) ||
       (v === 'notes' && view === 'notes')
     ) {
       el.classList.add('active');
@@ -46,6 +47,7 @@ function renderView() {
     case 'dashboard':   html = renderDashboard(); break;
     case 'goals':       html = renderGoals(); break;
     case 'goal-detail': html = renderGoalDetail(p.id); break;
+    case 'mindmap':     html = renderMindmap(p.id); break;
     case 'sources':     html = renderSources(p); break;
     case 'notes':       html = renderNotes(p); break;
     case 'graph':       html = renderGraph(p); break;
@@ -71,6 +73,7 @@ function renderView() {
         }
       });
       break;
+    case 'mindmap':     bindMindmap(p.id); break;
     case 'sources':     bindSources(p); break;
     case 'notes':       bindNotes(p); break;
     case 'graph':       bindGraph(p); break;

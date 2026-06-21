@@ -812,3 +812,313 @@ html, body {
   width: 100%;
 }
 
+/* mindmap 视图时去掉 main 的 padding，让画布撑满 */
+#main:has(.mm-toolbar) {
+  padding: 20px 24px;
+}
+.mm-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 0 0 18px;
+  border-bottom: 1px solid var(--border-light);
+  margin-bottom: 0;
+}
+.mm-title-area {
+  flex: 1;
+  min-width: 0;
+}
+.mm-goal-title {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.mm-shortcut-bar {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 10px 0 14px;
+  flex-wrap: wrap;
+  border-bottom: 1px solid var(--border-light);
+  margin-bottom: 0;
+}
+.mm-shortcut {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+.mm-shortcut kbd {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1px 6px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  font-size: 11px;
+  font-family: inherit;
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+
+/* Canvas */
+.mm-canvas {
+  padding: 24px 0 40px;
+  overflow-x: auto;
+  min-height: calc(100vh - 180px);
+}
+
+.mm-tree {
+  display: inline-flex;
+  flex-direction: column;
+  gap: 0;
+  min-width: 100%;
+}
+
+/* Node wrap — handles indentation */
+.mm-node-wrap {
+  display: flex;
+  flex-direction: column;
+  position: relative;
+}
+
+/* Vertical connector line on the left */
+.mm-node-wrap[data-depth]:not([data-depth="0"]) {
+  padding-left: 28px;
+}
+.mm-node-wrap[data-depth]:not([data-depth="0"])::before {
+  content: '';
+  position: absolute;
+  left: 13px;
+  top: 0;
+  bottom: 0;
+  width: 1px;
+  background: var(--border);
+}
+.mm-node-wrap[data-depth]:not([data-depth="0"]) > .mm-node::before {
+  content: '';
+  position: absolute;
+  left: -15px;
+  top: 50%;
+  width: 12px;
+  height: 1px;
+  background: var(--border);
+}
+
+/* Node row */
+.mm-node {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 12px 7px 10px;
+  margin: 3px 0;
+  background: var(--white);
+  border: 1.5px solid var(--node-border, var(--border));
+  border-radius: 10px;
+  max-width: 700px;
+  min-width: 220px;
+  transition: box-shadow 0.15s, border-color 0.15s;
+  cursor: default;
+}
+.mm-node:hover {
+  border-color: var(--node-color, var(--purple-300));
+  box-shadow: 0 2px 10px rgba(0,0,0,0.06);
+}
+.mm-node:hover .mm-actions { opacity: 1; }
+.mm-node:hover .mm-act-btn { opacity: 1; }
+
+.mm-node-root {
+  border-width: 2px;
+  min-width: 280px;
+  padding: 10px 16px 10px 12px;
+}
+.mm-node-root .mm-node-text {
+  font-size: 16px;
+  font-weight: 700;
+}
+
+/* Type tag pill */
+.mm-type-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 1px 7px;
+  border-radius: 12px;
+  font-size: 11px;
+  font-weight: 600;
+  border: 1px solid;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+/* Inline editable text */
+.mm-node-text {
+  flex: 1;
+  min-width: 60px;
+  outline: none;
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--text-primary);
+  border-radius: 4px;
+  padding: 1px 4px;
+  white-space: pre-wrap;
+  word-break: break-word;
+  cursor: text;
+  transition: background 0.12s;
+}
+.mm-node-text:focus {
+  background: var(--purple-50);
+  box-shadow: 0 0 0 2px var(--purple-200);
+}
+.mm-node-text:empty::before {
+  content: attr(data-placeholder);
+  color: var(--text-muted);
+  font-style: italic;
+  pointer-events: none;
+}
+
+/* Progress bar inline */
+.mm-progress {
+  width: 60px;
+  height: 4px;
+  background: var(--border);
+  border-radius: 2px;
+  flex-shrink: 0;
+  overflow: hidden;
+}
+.mm-progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--purple-300), var(--purple-500));
+  border-radius: 2px;
+}
+.mm-progress-label {
+  font-size: 11px;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+/* Missing hint */
+.mm-missing {
+  font-size: 11px;
+  color: #c48a1a;
+  font-weight: 600;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+/* Collapse button */
+.mm-collapse {
+  width: 18px;
+  height: 18px;
+  border: none;
+  background: var(--surface);
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 11px;
+  color: var(--text-muted);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: all 0.12s;
+  padding: 0;
+}
+.mm-collapse:hover { background: var(--purple-100); color: var(--purple-600); }
+.mm-collapse-placeholder { width: 18px; flex-shrink: 0; }
+
+/* Action buttons (hidden until hover) */
+.mm-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  opacity: 0;
+  transition: opacity 0.12s;
+  flex-shrink: 0;
+  margin-left: 4px;
+}
+.mm-act-btn {
+  width: 20px;
+  height: 20px;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+  font-size: 13px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  transition: all 0.12s;
+  line-height: 1;
+}
+.mm-add-child {
+  background: var(--purple-50);
+  color: var(--purple-500);
+}
+.mm-add-child:hover { background: var(--purple-100); }
+
+.mm-delete-node {
+  background: #fce8e8;
+  color: #b84040;
+}
+.mm-delete-node:hover { background: #f8d0d0; }
+
+/* Children container */
+.mm-children {
+  display: flex;
+  flex-direction: column;
+  margin-left: 16px;
+  border-left: 1.5px solid var(--border-light);
+  padding-left: 0;
+}
+.mm-children.mm-collapsed { display: none; }
+
+/* Bottom quick-add row */
+.mm-add-root-row {
+  display: flex;
+  gap: 10px;
+  margin-top: 20px;
+  padding-top: 16px;
+  border-top: 1px dashed var(--border);
+}
+.mm-add-section-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
+  border: 1.5px dashed var(--purple-200);
+  background: transparent;
+  border-radius: var(--radius);
+  cursor: pointer;
+  font-size: 13px;
+  color: var(--purple-500);
+  transition: all 0.15s;
+}
+.mm-add-section-btn:hover {
+  background: var(--purple-50);
+  border-color: var(--purple-400);
+}
+.mm-add-section-btn kbd {
+  padding: 1px 5px;
+  background: var(--purple-100);
+  border: 1px solid var(--purple-200);
+  border-radius: 3px;
+  font-size: 11px;
+  font-family: inherit;
+  color: var(--purple-600);
+}
+.mm-add-source-btn {
+  border-color: #a0dfc0;
+  color: #3aad6e;
+}
+.mm-add-source-btn:hover {
+  background: #eafaf2;
+  border-color: #3aad6e;
+}
+

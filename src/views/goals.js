@@ -83,7 +83,7 @@ export function bindGoals({ action } = {}) {
   });
 
   document.querySelectorAll('[data-goal-id]').forEach(el => {
-    el.addEventListener('click', () => navigate('goal-detail', { id: el.dataset.goalId }));
+    el.addEventListener('click', () => navigate('mindmap', { id: el.dataset.goalId }));
   });
 
   if (action === 'new') showGoalModal();
@@ -131,12 +131,14 @@ function showGoalModal(goal = null) {
     if (goal) {
       updateGoal(goal.id, { title, description, status });
       toast('已更新', 'success');
+      closeModal();
+      navigate('goals');
     } else {
-      createGoal({ title, description, status });
-      toast('已创建', 'success');
+      const newGoal = createGoal({ title, description, status });
+      toast('已创建，开始规划吧', 'success');
+      closeModal();
+      navigate('mindmap', { id: newGoal.id });
     }
-    closeModal();
-    navigate('goals');
   };
 }
 
