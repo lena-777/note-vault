@@ -10,7 +10,7 @@ if [ -n "$PID" ]; then
   sleep 1
 fi
 
-# 启动服务
+# 启动后端服务（静态前端由 server 一并托管）
 cd "$(dirname "$0")/server"
 node index.js &
 

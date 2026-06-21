@@ -8,7 +8,7 @@ app.use(cors());
 app.use(express.json());
 
 // 静态文件服务（前端）
-app.use(express.static(path.join(__dirname, '..')));
+app.use(express.static(path.join(__dirname, '../frontend')));
 
 // ===== DB 连接池 =====
 const pool = mysql.createPool({
