@@ -16,7 +16,11 @@ export function renderDashboard() {
         <div class="page-title">总览</div>
         <div class="page-subtitle">掌握你的知识串联进度</div>
       </div>
-      <button class="btn btn-primary" id="dash-new-goal">+ 新建目标</button>
+      <div class="flex gap-8">
+        <button class="btn btn-secondary" id="dash-import">导入</button>
+        <button class="btn btn-secondary" id="dash-export">导出</button>
+        <button class="btn btn-primary" id="dash-new-goal">+ 新建目标</button>
+      </div>
     </div>
 
     <div class="stat-grid">
@@ -78,5 +82,11 @@ export function bindDashboard() {
   });
   document.querySelectorAll('[data-goto-goal]').forEach(el => {
     el.addEventListener('click', () => navigate('goal-detail', { id: el.dataset.gotoGoal }));
+  });
+  document.getElementById('dash-export')?.addEventListener('click', () => {
+    import('../app.js').then(m => m.showExportModal?.());
+  });
+  document.getElementById('dash-import')?.addEventListener('click', () => {
+    document.getElementById('import-file').click();
   });
 }

@@ -58,7 +58,10 @@ function renderView() {
 
   // Bind events
   switch (view) {
-    case 'dashboard':   bindDashboard(); break;
+    case 'dashboard':
+      bindDashboard();
+      if (p._export) showExportModal();
+      break;
     case 'goals':       bindGoals(p); break;
     case 'goal-detail':
       bindGoalDetail(p.id, {
@@ -87,49 +90,17 @@ function init() {
     if (e.target === document.getElementById('modal-overlay')) closeModal();
   });
 
-  // Export
-  document.getElementById('btn-export').addEventListener('click', () => {
-    const menu = `
-      <div class="modal-header">
-        <span class="modal-title">导出数据</span>
-        <button class="modal-close" id="modal-close-btn">×</button>
-      </div>
-      <div style="display:flex;flex-direction:column;gap:12px">
-        <button class="btn btn-secondary w-full" id="export-json">导出为 JSON（完整备份）</button>
-        <button class="btn btn-secondary w-full" id="export-md">导出为 Markdown</button>
-      </div>
-    `;
-    import('./utils/helpers.js').then(({ openModal, closeModal }) => {
-      openModal(menu);
-      document.getElementById('modal-close-btn').onclick = closeModal;
-      document.getElementById('export-json').onclick = () => {
-        downloadFile('note-vault-backup.json', exportJSON(), 'application/json');
-        closeModal();
-        toast('JSON 已导出', 'success');
-      };
-      document.getElementById('export-md').onclick = () => {
-        downloadFile('note-vault.md', exportMarkdown(), 'text/markdown');
-        closeModal();
-        toast('Markdown 已导出', 'success');
-      };
-    });
-  });
-
-  // Import
-  document.getElementById('btn-import').addEventListener('click', () => {
-    document.getElementById('import-file').click();
-  });
+  // Import file handler (file input is in HTML, triggered by dashboard)
   document.getElementById('import-file').addEventListener('change', async (e) => {
     const file = e.target.files[0];
     if (!file) return;
     const text = await file.text();
-    let result;
-    if (file.name.endsWith('.json')) {
-      result = importJSON(text);
-    } else {
+    if (!file.name.endsWith('.json')) {
       toast('目前仅支持 JSON 导入', 'error');
+      e.target.value = '';
       return;
     }
+    const result = importJSON(text);
     if (result.ok) {
       toast('导入成功', 'success');
       navigate(currentView, currentParams);
@@ -151,6 +122,32 @@ function downloadFile(name, content, type) {
   a.download = name;
   a.click();
   URL.revokeObjectURL(url);
+}
+
+export function showExportModal() {
+  import('./utils/helpers.js').then(({ openModal, closeModal }) => {
+    openModal(`
+      <div class="modal-header">
+        <span class="modal-title">导出数据</span>
+        <button class="modal-close" id="modal-close-btn">×</button>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:12px">
+        <button class="btn btn-secondary w-full" id="export-json">导出为 JSON（完整备份）</button>
+        <button class="btn btn-secondary w-full" id="export-md">导出为 Markdown</button>
+      </div>
+    `);
+    document.getElementById('modal-close-btn').onclick = closeModal;
+    document.getElementById('export-json').onclick = () => {
+      downloadFile('note-vault-backup.json', exportJSON(), 'application/json');
+      closeModal();
+      toast('JSON 已导出', 'success');
+    };
+    document.getElementById('export-md').onclick = () => {
+      downloadFile('note-vault.md', exportMarkdown(), 'text/markdown');
+      closeModal();
+      toast('Markdown 已导出', 'success');
+    };
+  });
 }
 
 init();
