@@ -6,16 +6,19 @@ import {
 import { toast, formatDate, relLabel, openModal, closeModal, renderTagInput, cSelect, initCustomSelects, getCSelectValue } from '../utils/helpers.js';
 import { navigate } from '../app.js';
 
-export function renderNotes(filter = {}) {
-  const goals = getGoals();
-  let notes = getNotes(filter);
-  const subtopic = filter.subtopicId ? getSubtopicById(filter.subtopicId) : null;
-  const goal = subtopic ? getGoalById(subtopic.goalId) : (filter.goalId ? getGoalById(filter.goalId) : null);
+export async function renderNotes(filter = {}) {
+  const [goals, notes] = await Promise.all([getGoals(), getNotes(filter)]);
+  const subtopic = filter.subtopicId ? await getSubtopicById(filter.subtopicId) : null;
+  const goal = subtopic ? await getGoalById(subtopic.goalId) : (filter.goalId ? await getGoalById(filter.goalId) : null);
 
-  const goalOptions = [
-    { value: '', label: '全部目标' },
-    ...goals.map(g => ({ value: g.id, label: g.title })),
-  ];
+  const goalOptions = [{ value: '', label: '全部目标' }, ...goals.map(g => ({ value: g.id, label: g.title }))];
+
+  // 为每张卡片预加载 subtopic/goal/source 信息
+  const allSubtopics = await getSubtopics();
+  const allSources = await getSources();
+  const subMap = Object.fromEntries(allSubtopics.map(s => [s.id, s]));
+  const srcMap = Object.fromEntries(allSources.map(s => [s.id, s]));
+  const goalMap = Object.fromEntries(goals.map(g => [g.id, g]));
 
   return `
     <div class="page-header">
@@ -25,34 +28,24 @@ export function renderNotes(filter = {}) {
       </div>
       <button class="btn btn-primary" id="btn-new-note">+ 记录重点</button>
     </div>
-
     ${subtopic ? `<div class="detail-back" id="back-to-goal">← 返回目标</div>` : ''}
-
     <div class="flex gap-8 mb-16" style="flex-wrap:wrap;align-items:center">
       ${cSelect('filter-goal-note', goalOptions, filter.goalId || '', { style: 'width:200px' })}
       <input class="form-input" id="filter-kw-note" placeholder="关键词搜索" style="width:180px" value="${filter.keyword || ''}" />
     </div>
-
-    ${notes.length === 0 ? `
-      <div class="empty-state">
-        <div class="empty-icon">◇</div>
-        <div class="empty-text">还没有重点卡片</div>
-      </div>
-    ` : `
+    ${notes.length === 0 ? `<div class="empty-state"><div class="empty-icon">◇</div><div class="empty-text">还没有重点卡片</div></div>` : `
       <div class="grid-auto">
-        ${notes.map(n => renderNoteCard(n)).join('')}
-      </div>
-    `}
+        ${notes.map(n => {
+          const sub = subMap[n.subtopicId];
+          const g = sub ? goalMap[sub.goalId] : null;
+          const src = n.sourceId ? srcMap[n.sourceId] : null;
+          return renderNoteCard(n, sub, g, src);
+        }).join('')}
+      </div>`}
   `;
 }
 
-function renderNoteCard(n) {
-  const subtopic = getSubtopicById(n.subtopicId);
-  const goal = subtopic ? getGoalById(subtopic.goalId) : null;
-  const sources = getSources();
-  const src = n.sourceId ? sources.find(s => s.id === n.sourceId) : null;
-  const relations = getNoteRelations(n.id);
-
+function renderNoteCard(n, subtopic, goal, src, relations = []) {
   return `
     <div class="card note-card" data-note-id="${n.id}">
       <div class="note-actions">
@@ -70,40 +63,20 @@ function renderNoteCard(n) {
         </div>
         <span class="text-sm text-muted">${formatDate(n.updatedAt)}</span>
       </div>
-      ${(n.tags || []).length > 0 ? `
-        <div class="note-tags mt-8">
-          ${n.tags.map(t => `<span class="tag">${t}</span>`).join('')}
-        </div>
-      ` : ''}
-      ${relations.length > 0 ? `
-        <div class="note-relations mt-8">
-          ${relations.map(r => {
-            const otherId = r.fromId === n.id ? r.toId : r.fromId;
-            const other = getNotes().find(x => x.id === otherId);
-            const [label, cls] = relLabel(r.type);
-            return `<span class="rel-badge ${cls}" title="${other?.content?.slice(0,40) || ''}">
-              ${label} · ${other?.content?.slice(0,20) || '已删除'}…
-              <span class="tag-remove" data-rel-id="${r.id}">×</span>
-            </span>`;
-          }).join('')}
-        </div>
-      ` : ''}
-    </div>
-  `;
+      ${(n.tags || []).length > 0 ? `<div class="note-tags mt-8">${n.tags.map(t => `<span class="tag">${t}</span>`).join('')}</div>` : ''}
+    </div>`;
 }
 
 export function bindNotes(filter = {}) {
   initCustomSelects((id, value) => {
-    if (id === 'filter-goal-note') {
-      navigate('notes', { goalId: value || undefined });
-    }
+    if (id === 'filter-goal-note') navigate('notes', { goalId: value || undefined });
   });
 
   document.getElementById('btn-new-note')?.addEventListener('click', () => showNoteModal(null, filter));
 
-  document.getElementById('back-to-goal')?.addEventListener('click', () => {
-    const sub = getSubtopicById(filter.subtopicId);
-    if (sub) navigate('goal-detail', { id: sub.goalId });
+  document.getElementById('back-to-goal')?.addEventListener('click', async () => {
+    const sub = filter.subtopicId ? await getSubtopicById(filter.subtopicId) : null;
+    if (sub) navigate('mindmap', { id: sub.goalId });
     else navigate('goals');
   });
 
@@ -113,16 +86,17 @@ export function bindNotes(filter = {}) {
   });
 
   document.querySelectorAll('.btn-edit-note').forEach(btn => {
-    btn.addEventListener('click', () => {
-      const n = getNotes().find(n => n.id === btn.dataset.id);
+    btn.addEventListener('click', async () => {
+      const notes = await getNotes();
+      const n = notes.find(n => n.id === btn.dataset.id);
       if (n) showNoteModal(n, filter);
     });
   });
 
   document.querySelectorAll('.btn-delete-note').forEach(btn => {
-    btn.addEventListener('click', () => {
+    btn.addEventListener('click', async () => {
       if (confirm('确定删除该重点卡片？')) {
-        deleteNote(btn.dataset.id);
+        await deleteNote(btn.dataset.id);
         toast('已删除', 'success');
         navigate('notes', filter);
       }
@@ -132,35 +106,19 @@ export function bindNotes(filter = {}) {
   document.querySelectorAll('.btn-add-rel').forEach(btn => {
     btn.addEventListener('click', () => showRelModal(btn.dataset.id, filter));
   });
-
-  document.querySelectorAll('[data-rel-id]').forEach(span => {
-    span.addEventListener('click', e => {
-      e.stopPropagation();
-      if (confirm('删除该关联？')) {
-        deleteNoteRelation(span.dataset.relId);
-        navigate('notes', filter);
-      }
-    });
-  });
 }
 
-// ===== NOTE MODAL =====
-export function showNoteModal(note = null, filter = {}) {
-  const goals = getGoals();
+export async function showNoteModal(note = null, filter = {}) {
+  const goals = await getGoals();
   const allSubs = [];
-  goals.forEach(g => {
-    getSubtopics(g.id).forEach(s => allSubs.push({ ...s, goalTitle: g.title }));
-  });
-  const sources = getSources();
+  for (const g of goals) {
+    const subs = await getSubtopics(g.id);
+    subs.forEach(s => allSubs.push({ ...s, goalTitle: g.title }));
+  }
+  const sources = await getSources();
 
-  const subtopicOptions = [
-    { value: '', label: '请选择子问题' },
-    ...allSubs.map(s => ({ value: s.id, label: `[${s.goalTitle}] ${s.title}` })),
-  ];
-  const sourceOptions = [
-    { value: '', label: '不关联' },
-    ...sources.map(s => ({ value: s.id, label: s.title })),
-  ];
+  const subtopicOptions = [{ value: '', label: '请选择子问题' }, ...allSubs.map(s => ({ value: s.id, label: `[${s.goalTitle}] ${s.title}` }))];
+  const sourceOptions = [{ value: '', label: '不关联' }, ...sources.map(s => ({ value: s.id, label: s.title }))];
 
   openModal(`
     <div class="modal-header">
@@ -173,11 +131,11 @@ export function showNoteModal(note = null, filter = {}) {
     </div>
     <div class="form-group">
       <label class="form-label">重点内容 *</label>
-      <textarea class="form-textarea" id="note-content" placeholder="粘贴或输入重点内容..." style="min-height:100px">${note?.content || ''}</textarea>
+      <textarea class="form-textarea" id="note-content" style="min-height:100px">${note?.content || ''}</textarea>
     </div>
     <div class="form-group">
       <label class="form-label">原文引用（可选）</label>
-      <textarea class="form-textarea" id="note-quote" placeholder="原文摘录..." style="min-height:60px">${note?.quote || ''}</textarea>
+      <textarea class="form-textarea" id="note-quote" style="min-height:60px">${note?.quote || ''}</textarea>
     </div>
     <div class="form-group">
       <label class="form-label">来源文章</label>
@@ -192,13 +150,11 @@ export function showNoteModal(note = null, filter = {}) {
       <button class="btn btn-primary" id="modal-save-note">保存</button>
     </div>
   `);
-
   initCustomSelects();
   renderTagInput('tag-input-container', note?.tags || []);
-
   document.getElementById('modal-close-btn').onclick = closeModal;
   document.getElementById('modal-cancel').onclick = closeModal;
-  document.getElementById('modal-save-note').onclick = () => {
+  document.getElementById('modal-save-note').onclick = async () => {
     const subtopicId = getCSelectValue('note-subtopic');
     const content = document.getElementById('note-content').value.trim();
     if (!subtopicId) { toast('请选择子问题', 'error'); return; }
@@ -206,28 +162,20 @@ export function showNoteModal(note = null, filter = {}) {
     const quote = document.getElementById('note-quote').value.trim();
     const sourceId = getCSelectValue('note-source') || null;
     const tags = document.getElementById('tag-input-container').getTags?.() || [];
-    if (note) {
-      updateNote(note.id, { subtopicId, content, quote, sourceId, tags });
-      toast('已更新', 'success');
-    } else {
-      createNote({ subtopicId, content, quote, sourceId, tags });
-      toast('已记录', 'success');
-    }
+    if (note) { await updateNote(note.id, { subtopicId, content, quote, sourceId, tags }); toast('已更新', 'success'); }
+    else { await createNote({ subtopicId, content, quote, sourceId, tags }); toast('已记录', 'success'); }
     closeModal();
     navigate('notes', filter);
   };
 }
 
-// ===== RELATION MODAL =====
-function showRelModal(noteId, filter) {
-  const notes = getNotes().filter(n => n.id !== noteId);
+async function showRelModal(noteId, filter) {
+  const allNotes = await getNotes();
+  const notes = allNotes.filter(n => n.id !== noteId);
   const relTypeOptions = [
-    { value: 'support',  label: '支撑 — 支持/印证另一张' },
-    { value: 'extend',   label: '补充 — 互相补充' },
-    { value: 'conflict', label: '矛盾 — 存在冲突' },
-    { value: 'sequence', label: '递进 — 构成递进关系' },
+    { value:'support',label:'支撑 — 支持/印证另一张'},{value:'extend',label:'补充 — 互相补充'},
+    { value:'conflict',label:'矛盾 — 存在冲突'},{value:'sequence',label:'递进 — 构成递进关系'},
   ];
-
   openModal(`
     <div class="modal-header">
       <span class="modal-title">建立关联</span>
@@ -242,43 +190,31 @@ function showRelModal(noteId, filter) {
       <input class="form-input" id="rel-search" placeholder="搜索卡片内容..." />
       <div id="rel-list" style="max-height:200px;overflow-y:auto;margin-top:8px;display:flex;flex-direction:column;gap:4px"></div>
     </div>
-    <div class="modal-footer">
-      <button class="btn btn-secondary" id="modal-cancel">取消</button>
-    </div>
+    <div class="modal-footer"><button class="btn btn-secondary" id="modal-cancel">取消</button></div>
   `);
-
   initCustomSelects();
   document.getElementById('modal-close-btn').onclick = closeModal;
   document.getElementById('modal-cancel').onclick = closeModal;
-
   let selected = null;
-
   function renderList(kw = '') {
     const filtered = notes.filter(n => !kw || n.content.toLowerCase().includes(kw.toLowerCase())).slice(0, 20);
     document.getElementById('rel-list').innerHTML = filtered.map(n => `
-      <div class="subtopic-item ${selected === n.id ? 'active' : ''}" data-rel-note="${n.id}" style="cursor:pointer;${selected === n.id ? 'background:var(--purple-50)' : ''}">
-        <span style="font-size:13px">${n.content.slice(0, 80)}${n.content.length > 80 ? '…' : ''}</span>
-        ${selected === n.id ? `<button class="btn btn-sm btn-primary" id="btn-confirm-rel">确认关联</button>` : ''}
-      </div>
-    `).join('');
-
+      <div class="subtopic-item" data-rel-note="${n.id}" style="cursor:pointer;${selected===n.id?'background:var(--purple-50)':''}">
+        <span style="font-size:13px">${n.content.slice(0,80)}${n.content.length>80?'…':''}</span>
+        ${selected===n.id?`<button class="btn btn-sm btn-primary" id="btn-confirm-rel">确认关联</button>`:''}
+      </div>`).join('');
     document.querySelectorAll('[data-rel-note]').forEach(el => {
-      el.addEventListener('click', () => {
-        selected = el.dataset.relNote;
-        renderList(document.getElementById('rel-search').value);
-      });
+      el.addEventListener('click', () => { selected = el.dataset.relNote; renderList(document.getElementById('rel-search').value); });
     });
-
-    document.getElementById('btn-confirm-rel')?.addEventListener('click', () => {
+    document.getElementById('btn-confirm-rel')?.addEventListener('click', async () => {
       if (!selected) return;
       const type = getCSelectValue('rel-type') || 'support';
-      createNoteRelation({ fromId: noteId, toId: selected, type });
+      await createNoteRelation({ fromId: noteId, toId: selected, type });
       toast('关联已建立', 'success');
       closeModal();
       navigate('notes', filter);
     });
   }
-
   renderList();
   document.getElementById('rel-search').addEventListener('input', e => renderList(e.target.value));
 }

@@ -5,52 +5,32 @@ import {
 import { toast, formatDate, statusLabel, openModal, closeModal, cSelect, initCustomSelects, getCSelectValue } from '../utils/helpers.js';
 import { navigate } from '../app.js';
 
-export function renderSources(filter = {}) {
-  const goals = getGoals();
-  const stats = getStats();
-  let sources = getSources(filter.goalId);
+export async function renderSources(filter = {}) {
+  const [goals, stats] = await Promise.all([getGoals(), getStats()]);
+  const sources = await getSources(filter.goalId);
 
-  const goalOptions = [
-    { value: '', label: '全部目标' },
-    ...goals.map(g => ({ value: g.id, label: g.title })),
-  ];
+  const goalOptions = [{ value: '', label: '全部目标' }, ...goals.map(g => ({ value: g.id, label: g.title }))];
   const statusOptions = [
     { value: '', label: '全部状态' },
-    { value: 'unread',  label: '待读' },
-    { value: 'reading', label: '在读' },
-    { value: 'read',    label: '已读' },
+    { value: 'unread', label: '待读' }, { value: 'reading', label: '在读' }, { value: 'read', label: '已读' },
   ];
 
   return `
     <div class="page-header">
-      <div>
-        <div class="page-title">文章来源</div>
-        <div class="page-subtitle">管理你的阅读材料</div>
-      </div>
+      <div><div class="page-title">文章来源</div><div class="page-subtitle">管理你的阅读材料</div></div>
       <button class="btn btn-primary" id="btn-new-source">+ 添加文章</button>
     </div>
-
     <div class="flex gap-8 mb-16" style="flex-wrap:wrap;align-items:center">
       ${cSelect('filter-goal-source', goalOptions, filter.goalId || '', { style: 'width:200px' })}
       ${cSelect('filter-status-source', statusOptions, filter.status || '', { style: 'width:140px' })}
     </div>
-
-    ${sources.length === 0 ? `
-      <div class="empty-state">
-        <div class="empty-icon">⊟</div>
-        <div class="empty-text">还没有文章，点击右上角添加</div>
-      </div>
-    ` : `
+    ${sources.length === 0 ? `<div class="empty-state"><div class="empty-icon">⊟</div><div class="empty-text">还没有文章，点击右上角添加</div></div>` : `
       <div style="display:flex;flex-direction:column;gap:10px">
         ${sources.map(src => {
           const nc = stats.noteCountBySource[src.id] || 0;
           const [label, cls] = statusLabel(src.status);
           const goal = goals.find(g => g.id === src.goalId);
-          const srcStatusOptions = [
-            { value: 'unread',  label: '待读' },
-            { value: 'reading', label: '在读' },
-            { value: 'read',    label: '已读' },
-          ];
+          const srcStatusOpts = [{ value:'unread',label:'待读'},{value:'reading',label:'在读'},{value:'read',label:'已读'}];
           return `
             <div class="card">
               <div class="source-card">
@@ -66,28 +46,23 @@ export function renderSources(filter = {}) {
                   </div>
                 </div>
                 <div class="source-actions flex gap-8" style="align-items:center">
-                  ${cSelect('src-status-' + src.id, srcStatusOptions, src.status, { small: true, style: 'width:90px' })}
+                  ${cSelect('src-status-' + src.id, srcStatusOpts, src.status, { small: true, style: 'width:90px' })}
                   <button class="btn btn-sm btn-secondary btn-edit-source" data-id="${src.id}">编辑</button>
                   <button class="btn btn-sm btn-danger btn-delete-source" data-id="${src.id}">删除</button>
                 </div>
               </div>
-            </div>
-          `;
+            </div>`;
         }).join('')}
-      </div>
-    `}
+      </div>`}
   `;
 }
 
 export function bindSources(filter = {}) {
-  initCustomSelects((id, value) => {
-    if (id === 'filter-goal-source') {
-      navigate('sources', { goalId: value || undefined });
-    } else if (id === 'filter-status-source') {
-      navigate('sources', { ...filter, status: value || undefined });
-    } else if (id.startsWith('src-status-')) {
-      const srcId = id.replace('src-status-', '');
-      updateSource(srcId, { status: value });
+  initCustomSelects(async (id, value) => {
+    if (id === 'filter-goal-source') navigate('sources', { goalId: value || undefined });
+    else if (id === 'filter-status-source') navigate('sources', { ...filter, status: value || undefined });
+    else if (id.startsWith('src-status-')) {
+      await updateSource(id.replace('src-status-', ''), { status: value });
       toast('已更新阅读状态', 'success');
     }
   });
@@ -95,16 +70,17 @@ export function bindSources(filter = {}) {
   document.getElementById('btn-new-source')?.addEventListener('click', () => showSourceModal(null, filter.goalId));
 
   document.querySelectorAll('.btn-edit-source').forEach(btn => {
-    btn.addEventListener('click', () => {
-      const src = getSources().find(s => s.id === btn.dataset.id);
+    btn.addEventListener('click', async () => {
+      const sources = await getSources();
+      const src = sources.find(s => s.id === btn.dataset.id);
       if (src) showSourceModal(src);
     });
   });
 
   document.querySelectorAll('.btn-delete-source').forEach(btn => {
-    btn.addEventListener('click', () => {
+    btn.addEventListener('click', async () => {
       if (confirm('确定删除该文章？')) {
-        deleteSource(btn.dataset.id);
+        await deleteSource(btn.dataset.id);
         toast('已删除', 'success');
         navigate('sources', filter);
       }
@@ -112,17 +88,10 @@ export function bindSources(filter = {}) {
   });
 }
 
-export function showSourceModal(source = null, defaultGoalId = null) {
-  const goals = getGoals();
-  const goalOptions = [
-    { value: '', label: '不关联' },
-    ...goals.map(g => ({ value: g.id, label: g.title })),
-  ];
-  const statusOptions = [
-    { value: 'unread',  label: '待读' },
-    { value: 'reading', label: '在读' },
-    { value: 'read',    label: '已读' },
-  ];
+export async function showSourceModal(source = null, defaultGoalId = null) {
+  const goals = await getGoals();
+  const goalOptions = [{ value: '', label: '不关联' }, ...goals.map(g => ({ value: g.id, label: g.title }))];
+  const statusOptions = [{ value:'unread',label:'待读'},{value:'reading',label:'在读'},{value:'read',label:'已读'}];
 
   openModal(`
     <div class="modal-header">
@@ -131,11 +100,11 @@ export function showSourceModal(source = null, defaultGoalId = null) {
     </div>
     <div class="form-group">
       <label class="form-label">文章标题 *</label>
-      <input class="form-input" id="src-title" placeholder="e.g. React Fiber Architecture" value="${source?.title || ''}" />
+      <input class="form-input" id="src-title" value="${source?.title || ''}" placeholder="e.g. React Fiber Architecture" />
     </div>
     <div class="form-group">
       <label class="form-label">链接/出处</label>
-      <input class="form-input" id="src-url" placeholder="https://..." value="${source?.url || ''}" />
+      <input class="form-input" id="src-url" value="${source?.url || ''}" placeholder="https://..." />
     </div>
     <div class="form-row">
       <div class="form-group">
@@ -152,24 +121,17 @@ export function showSourceModal(source = null, defaultGoalId = null) {
       <button class="btn btn-primary" id="modal-save-src">保存</button>
     </div>
   `);
-
   initCustomSelects();
-
   document.getElementById('modal-close-btn').onclick = closeModal;
   document.getElementById('modal-cancel').onclick = closeModal;
-  document.getElementById('modal-save-src').onclick = () => {
+  document.getElementById('modal-save-src').onclick = async () => {
     const title = document.getElementById('src-title').value.trim();
     if (!title) { toast('请填写文章标题', 'error'); return; }
     const url = document.getElementById('src-url').value.trim();
     const goalId = getCSelectValue('src-goal') || null;
     const status = getCSelectValue('src-status') || 'unread';
-    if (source) {
-      updateSource(source.id, { title, url, goalId, status });
-      toast('已更新', 'success');
-    } else {
-      createSource({ title, url, goalId, status });
-      toast('已添加', 'success');
-    }
+    if (source) { await updateSource(source.id, { title, url, goalId, status }); toast('已更新', 'success'); }
+    else { await createSource({ title, url, goalId, status }); toast('已添加', 'success'); }
     closeModal();
     navigate('sources');
   };

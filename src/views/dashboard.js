@@ -2,13 +2,9 @@ import { getGoals, getStats } from '../store/db.js';
 import { formatDate, statusLabel } from '../utils/helpers.js';
 import { navigate } from '../app.js';
 
-export function renderDashboard() {
-  const stats = getStats();
-  const goals = getGoals();
-
-  const recentGoals = [...goals]
-    .sort((a, b) => b.updatedAt - a.updatedAt)
-    .slice(0, 6);
+export async function renderDashboard() {
+  const [stats, goals] = await Promise.all([getStats(), getGoals()]);
+  const recentGoals = [...goals].sort((a, b) => b.updatedAt - a.updatedAt).slice(0, 6);
 
   return `
     <div class="page-header">
@@ -24,22 +20,10 @@ export function renderDashboard() {
     </div>
 
     <div class="stat-grid">
-      <div class="stat-card">
-        <div class="stat-num">${stats.totalGoals}</div>
-        <div class="stat-label">学习目标</div>
-      </div>
-      <div class="stat-card">
-        <div class="stat-num">${stats.totalSubtopics}</div>
-        <div class="stat-label">子问题</div>
-      </div>
-      <div class="stat-card">
-        <div class="stat-num">${stats.totalSources}</div>
-        <div class="stat-label">文章来源</div>
-      </div>
-      <div class="stat-card">
-        <div class="stat-num">${stats.totalNotes}</div>
-        <div class="stat-label">重点卡片</div>
-      </div>
+      <div class="stat-card"><div class="stat-num">${stats.totalGoals}</div><div class="stat-label">学习目标</div></div>
+      <div class="stat-card"><div class="stat-num">${stats.totalSubtopics}</div><div class="stat-label">子问题</div></div>
+      <div class="stat-card"><div class="stat-num">${stats.totalSources}</div><div class="stat-label">文章来源</div></div>
+      <div class="stat-card"><div class="stat-num">${stats.totalNotes}</div><div class="stat-label">重点卡片</div></div>
     </div>
 
     <div class="section-title">进行中的目标</div>
@@ -61,9 +45,7 @@ export function renderDashboard() {
                 <span class="badge ${cls}">${label}</span>
               </div>
               ${g.description ? `<div class="goal-desc">${g.description}</div>` : ''}
-              <div class="goal-status-bar">
-                <div class="goal-status-bar-fill" style="width:${progress}%"></div>
-              </div>
+              <div class="goal-status-bar"><div class="goal-status-bar-fill" style="width:${progress}%"></div></div>
               <div class="flex-between mt-8">
                 <span class="text-sm text-muted">完成度 ${progress}%</span>
                 <span class="text-sm text-muted">${formatDate(g.updatedAt)}</span>
@@ -77,9 +59,7 @@ export function renderDashboard() {
 }
 
 export function bindDashboard() {
-  document.getElementById('dash-new-goal')?.addEventListener('click', () => {
-    navigate('goals', { action: 'new' });
-  });
+  document.getElementById('dash-new-goal')?.addEventListener('click', () => navigate('goals', { action: 'new' }));
   document.querySelectorAll('[data-goto-goal]').forEach(el => {
     el.addEventListener('click', () => navigate('mindmap', { id: el.dataset.gotoGoal }));
   });
