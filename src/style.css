@@ -681,3 +681,134 @@ html, body {
 .text-bold { font-weight: 600; }
 .hidden { display: none !important; }
 .w-full { width: 100%; }
+
+/* ===== CUSTOM SELECT ===== */
+.c-select {
+  position: relative;
+  display: inline-block;
+  outline: none;
+  user-select: none;
+}
+
+.c-select-trigger {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 9px 12px;
+  background: var(--white);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  cursor: pointer;
+  font-size: 14px;
+  color: var(--text-primary);
+  transition: border-color var(--transition), box-shadow var(--transition);
+  white-space: nowrap;
+  min-width: 0;
+}
+
+.c-select:hover .c-select-trigger {
+  border-color: var(--purple-300);
+}
+
+.c-select.open .c-select-trigger {
+  border-color: var(--purple-300);
+  box-shadow: 0 0 0 3px rgba(124,111,212,0.10);
+}
+
+.c-select-label {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 14px;
+}
+
+.c-select-arrow {
+  color: var(--text-muted);
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+  transition: transform var(--transition);
+}
+
+.c-select.open .c-select-arrow {
+  transform: rotate(180deg);
+  color: var(--purple-500);
+}
+
+.c-select-dropdown {
+  display: none;
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  min-width: 100%;
+  background: var(--white);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: 0 4px 20px rgba(0,0,0,0.10);
+  z-index: 500;
+  overflow: hidden;
+  max-height: 260px;
+  overflow-y: auto;
+}
+
+.c-select.open .c-select-dropdown {
+  display: block;
+  animation: csDropIn 0.12s ease;
+}
+
+@keyframes csDropIn {
+  from { opacity: 0; transform: translateY(-4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.c-select-option {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 14px;
+  cursor: pointer;
+  font-size: 13.5px;
+  color: var(--text-primary);
+  transition: background var(--transition);
+  white-space: nowrap;
+}
+
+.c-select-option:hover {
+  background: var(--purple-50);
+}
+
+.c-select-option.selected {
+  color: var(--purple-600);
+  font-weight: 500;
+  background: var(--purple-50);
+}
+
+.c-select-check {
+  width: 14px;
+  font-size: 11px;
+  color: var(--purple-500);
+  flex-shrink: 0;
+  text-align: center;
+}
+
+/* small variant */
+.c-select-sm .c-select-trigger {
+  padding: 5px 10px;
+  font-size: 12.5px;
+}
+.c-select-sm .c-select-label {
+  font-size: 12.5px;
+}
+.c-select-sm .c-select-option {
+  padding: 7px 12px;
+  font-size: 12.5px;
+}
+
+/* w-full 支持 */
+.c-select.w-full,
+.c-select.w-full .c-select-trigger {
+  width: 100%;
+}
+

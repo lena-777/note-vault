@@ -1,5 +1,5 @@
 import { getNotes, getGoals, getSubtopics, getSources, getSubtopicById, getGoalById } from '../store/db.js';
-import { formatDate, relLabel } from '../utils/helpers.js';
+import { formatDate, relLabel, cSelect, initCustomSelects, getCSelectValue } from '../utils/helpers.js';
 import { navigate } from '../app.js';
 
 export function renderSearch(filter = {}) {
@@ -11,6 +11,15 @@ export function renderSearch(filter = {}) {
   const tag = filter.tag || '';
 
   let notes = getNotes({ goalId: goalId || undefined, keyword: kw || undefined, tag: tag || undefined });
+
+  const goalOptions = [
+    { value: '', label: '全部目标' },
+    ...goals.map(g => ({ value: g.id, label: g.title })),
+  ];
+  const tagOptions = [
+    { value: '', label: '全部标签' },
+    ...allTags.map(t => ({ value: t, label: t })),
+  ];
 
   return `
     <div class="page-header">
@@ -26,14 +35,8 @@ export function renderSearch(filter = {}) {
     </div>
 
     <div class="search-filters">
-      <select class="form-select" id="search-goal" style="width:200px">
-        <option value="">全部目标</option>
-        ${goals.map(g => `<option value="${g.id}" ${goalId === g.id ? 'selected' : ''}>${g.title}</option>`).join('')}
-      </select>
-      <select class="form-select" id="search-tag" style="width:160px">
-        <option value="">全部标签</option>
-        ${allTags.map(t => `<option value="${t}" ${tag === t ? 'selected' : ''}>${t}</option>`).join('')}
-      </select>
+      ${cSelect('search-goal', goalOptions, goalId, { style: 'width:200px' })}
+      ${cSelect('search-tag', tagOptions, tag, { style: 'width:160px' })}
       <button class="btn btn-secondary" id="search-reset">清除筛选</button>
     </div>
 
@@ -80,21 +83,28 @@ function highlightText(text, kw) {
 }
 
 export function bindSearch(filter = {}) {
-  let timer;
-  const doSearch = () => {
-    const kw = document.getElementById('search-kw')?.value.trim();
-    const goalId = document.getElementById('search-goal')?.value;
-    const tag = document.getElementById('search-tag')?.value;
-    navigate('search', { keyword: kw || undefined, goalId: goalId || undefined, tag: tag || undefined });
-  };
-
-  document.getElementById('search-kw')?.addEventListener('input', () => {
-    clearTimeout(timer);
-    timer = setTimeout(doSearch, 300);
+  initCustomSelects((id, value) => {
+    if (id === 'search-goal') {
+      const kw = document.getElementById('search-kw')?.value.trim();
+      const tag = getCSelectValue('search-tag');
+      navigate('search', { keyword: kw || undefined, goalId: value || undefined, tag: tag || undefined });
+    } else if (id === 'search-tag') {
+      const kw = document.getElementById('search-kw')?.value.trim();
+      const goalId = getCSelectValue('search-goal');
+      navigate('search', { keyword: kw || undefined, goalId: goalId || undefined, tag: value || undefined });
+    }
   });
 
-  document.getElementById('search-goal')?.addEventListener('change', doSearch);
-  document.getElementById('search-tag')?.addEventListener('change', doSearch);
+  let timer;
+  document.getElementById('search-kw')?.addEventListener('input', (e) => {
+    clearTimeout(timer);
+    timer = setTimeout(() => {
+      const kw = e.target.value.trim();
+      const goalId = getCSelectValue('search-goal');
+      const tag = getCSelectValue('search-tag');
+      navigate('search', { keyword: kw || undefined, goalId: goalId || undefined, tag: tag || undefined });
+    }, 300);
+  });
 
   document.getElementById('search-reset')?.addEventListener('click', () => navigate('search'));
 

@@ -3,7 +3,7 @@ import {
   getSubtopics, createSubtopic, updateSubtopic, deleteSubtopic,
   getNotes, getStats
 } from '../store/db.js';
-import { toast, formatDate, statusLabel, openModal, closeModal } from '../utils/helpers.js';
+import { toast, formatDate, statusLabel, openModal, closeModal, cSelect, initCustomSelects, getCSelectValue } from '../utils/helpers.js';
 import { navigate } from '../app.js';
 
 // ===== GOAL LIST =====
@@ -90,6 +90,12 @@ export function bindGoals({ action } = {}) {
 }
 
 function showGoalModal(goal = null) {
+  const statusOptions = [
+    { value: 'active', label: '进行中' },
+    { value: 'paused', label: '暂停' },
+    { value: 'done',   label: '已完成' },
+  ];
+
   openModal(`
     <div class="modal-header">
       <span class="modal-title">${goal ? '编辑目标' : '新建目标'}</span>
@@ -105,11 +111,7 @@ function showGoalModal(goal = null) {
     </div>
     <div class="form-group">
       <label class="form-label">状态</label>
-      <select class="form-select" id="goal-status">
-        <option value="active" ${goal?.status === 'active' ? 'selected' : ''}>进行中</option>
-        <option value="paused" ${goal?.status === 'paused' ? 'selected' : ''}>暂停</option>
-        <option value="done"   ${goal?.status === 'done'   ? 'selected' : ''}>已完成</option>
-      </select>
+      ${cSelect('goal-status', statusOptions, goal?.status || 'active', { style: 'width:100%' })}
     </div>
     <div class="modal-footer">
       <button class="btn btn-secondary" id="modal-cancel">取消</button>
@@ -117,12 +119,14 @@ function showGoalModal(goal = null) {
     </div>
   `);
 
+  initCustomSelects();
+
   document.getElementById('modal-close-btn').onclick = closeModal;
   document.getElementById('modal-cancel').onclick = closeModal;
   document.getElementById('modal-save-goal').onclick = () => {
     const title = document.getElementById('goal-title').value.trim();
     if (!title) { toast('请填写目标标题', 'error'); return; }
-    const status = document.getElementById('goal-status').value;
+    const status = getCSelectValue('goal-status') || 'active';
     const description = document.getElementById('goal-desc').value.trim();
     if (goal) {
       updateGoal(goal.id, { title, description, status });

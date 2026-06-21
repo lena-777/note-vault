@@ -3,7 +3,7 @@ import {
   getNoteRelations, createNoteRelation, deleteNoteRelation,
   getSubtopics, getSubtopicById, getGoals, getSources, getGoalById
 } from '../store/db.js';
-import { toast, formatDate, relLabel, openModal, closeModal, renderTagInput } from '../utils/helpers.js';
+import { toast, formatDate, relLabel, openModal, closeModal, renderTagInput, cSelect, initCustomSelects, getCSelectValue } from '../utils/helpers.js';
 import { navigate } from '../app.js';
 
 export function renderNotes(filter = {}) {
@@ -11,6 +11,11 @@ export function renderNotes(filter = {}) {
   let notes = getNotes(filter);
   const subtopic = filter.subtopicId ? getSubtopicById(filter.subtopicId) : null;
   const goal = subtopic ? getGoalById(subtopic.goalId) : (filter.goalId ? getGoalById(filter.goalId) : null);
+
+  const goalOptions = [
+    { value: '', label: '全部目标' },
+    ...goals.map(g => ({ value: g.id, label: g.title })),
+  ];
 
   return `
     <div class="page-header">
@@ -23,11 +28,8 @@ export function renderNotes(filter = {}) {
 
     ${subtopic ? `<div class="detail-back" id="back-to-goal">← 返回目标</div>` : ''}
 
-    <div class="flex gap-8 mb-16" style="flex-wrap:wrap">
-      <select class="form-select" id="filter-goal-note" style="width:200px">
-        <option value="">全部目标</option>
-        ${goals.map(g => `<option value="${g.id}" ${filter.goalId === g.id ? 'selected' : ''}>${g.title}</option>`).join('')}
-      </select>
+    <div class="flex gap-8 mb-16" style="flex-wrap:wrap;align-items:center">
+      ${cSelect('filter-goal-note', goalOptions, filter.goalId || '', { style: 'width:200px' })}
       <input class="form-input" id="filter-kw-note" placeholder="关键词搜索" style="width:180px" value="${filter.keyword || ''}" />
     </div>
 
@@ -91,16 +93,18 @@ function renderNoteCard(n) {
 }
 
 export function bindNotes(filter = {}) {
+  initCustomSelects((id, value) => {
+    if (id === 'filter-goal-note') {
+      navigate('notes', { goalId: value || undefined });
+    }
+  });
+
   document.getElementById('btn-new-note')?.addEventListener('click', () => showNoteModal(null, filter));
 
   document.getElementById('back-to-goal')?.addEventListener('click', () => {
     const sub = getSubtopicById(filter.subtopicId);
     if (sub) navigate('goal-detail', { id: sub.goalId });
     else navigate('goals');
-  });
-
-  document.getElementById('filter-goal-note')?.addEventListener('change', e => {
-    navigate('notes', { goalId: e.target.value || undefined });
   });
 
   document.getElementById('filter-kw-note')?.addEventListener('input', e => {
@@ -149,6 +153,15 @@ export function showNoteModal(note = null, filter = {}) {
   });
   const sources = getSources();
 
+  const subtopicOptions = [
+    { value: '', label: '请选择子问题' },
+    ...allSubs.map(s => ({ value: s.id, label: `[${s.goalTitle}] ${s.title}` })),
+  ];
+  const sourceOptions = [
+    { value: '', label: '不关联' },
+    ...sources.map(s => ({ value: s.id, label: s.title })),
+  ];
+
   openModal(`
     <div class="modal-header">
       <span class="modal-title">${note ? '编辑重点卡片' : '记录重点'}</span>
@@ -156,10 +169,7 @@ export function showNoteModal(note = null, filter = {}) {
     </div>
     <div class="form-group">
       <label class="form-label">所属子问题 *</label>
-      <select class="form-select" id="note-subtopic">
-        <option value="">请选择子问题</option>
-        ${allSubs.map(s => `<option value="${s.id}" ${note?.subtopicId === s.id || filter.subtopicId === s.id ? 'selected' : ''}>[${s.goalTitle}] ${s.title}</option>`).join('')}
-      </select>
+      ${cSelect('note-subtopic', subtopicOptions, note?.subtopicId || filter.subtopicId || '', { style: 'width:100%', placeholder: '请选择子问题' })}
     </div>
     <div class="form-group">
       <label class="form-label">重点内容 *</label>
@@ -171,10 +181,7 @@ export function showNoteModal(note = null, filter = {}) {
     </div>
     <div class="form-group">
       <label class="form-label">来源文章</label>
-      <select class="form-select" id="note-source">
-        <option value="">不关联</option>
-        ${sources.map(s => `<option value="${s.id}" ${note?.sourceId === s.id ? 'selected' : ''}>${s.title}</option>`).join('')}
-      </select>
+      ${cSelect('note-source', sourceOptions, note?.sourceId || '', { style: 'width:100%', placeholder: '不关联' })}
     </div>
     <div class="form-group">
       <label class="form-label">标签</label>
@@ -186,17 +193,18 @@ export function showNoteModal(note = null, filter = {}) {
     </div>
   `);
 
+  initCustomSelects();
   renderTagInput('tag-input-container', note?.tags || []);
 
   document.getElementById('modal-close-btn').onclick = closeModal;
   document.getElementById('modal-cancel').onclick = closeModal;
   document.getElementById('modal-save-note').onclick = () => {
-    const subtopicId = document.getElementById('note-subtopic').value;
+    const subtopicId = getCSelectValue('note-subtopic');
     const content = document.getElementById('note-content').value.trim();
     if (!subtopicId) { toast('请选择子问题', 'error'); return; }
     if (!content) { toast('请填写重点内容', 'error'); return; }
     const quote = document.getElementById('note-quote').value.trim();
-    const sourceId = document.getElementById('note-source').value || null;
+    const sourceId = getCSelectValue('note-source') || null;
     const tags = document.getElementById('tag-input-container').getTags?.() || [];
     if (note) {
       updateNote(note.id, { subtopicId, content, quote, sourceId, tags });
@@ -213,6 +221,13 @@ export function showNoteModal(note = null, filter = {}) {
 // ===== RELATION MODAL =====
 function showRelModal(noteId, filter) {
   const notes = getNotes().filter(n => n.id !== noteId);
+  const relTypeOptions = [
+    { value: 'support',  label: '支撑 — 支持/印证另一张' },
+    { value: 'extend',   label: '补充 — 互相补充' },
+    { value: 'conflict', label: '矛盾 — 存在冲突' },
+    { value: 'sequence', label: '递进 — 构成递进关系' },
+  ];
+
   openModal(`
     <div class="modal-header">
       <span class="modal-title">建立关联</span>
@@ -220,12 +235,7 @@ function showRelModal(noteId, filter) {
     </div>
     <div class="form-group">
       <label class="form-label">关联类型</label>
-      <select class="form-select" id="rel-type">
-        <option value="support">支撑 — 这张卡片支持/印证另一张</option>
-        <option value="extend">补充 — 两张卡片互相补充</option>
-        <option value="conflict">矛盾 — 两张卡片存在冲突</option>
-        <option value="sequence">递进 — 构成递进关系</option>
-      </select>
+      ${cSelect('rel-type', relTypeOptions, 'support', { style: 'width:100%' })}
     </div>
     <div class="form-group">
       <label class="form-label">关联到哪张卡片</label>
@@ -237,6 +247,7 @@ function showRelModal(noteId, filter) {
     </div>
   `);
 
+  initCustomSelects();
   document.getElementById('modal-close-btn').onclick = closeModal;
   document.getElementById('modal-cancel').onclick = closeModal;
 
@@ -245,7 +256,7 @@ function showRelModal(noteId, filter) {
   function renderList(kw = '') {
     const filtered = notes.filter(n => !kw || n.content.toLowerCase().includes(kw.toLowerCase())).slice(0, 20);
     document.getElementById('rel-list').innerHTML = filtered.map(n => `
-      <div class="subtopic-item ${selected === n.id ? 'active' : ''}" data-rel-note="${n.id}" style="cursor:pointer;${selected === n.id ? 'background:var(--purple-100)' : ''}">
+      <div class="subtopic-item ${selected === n.id ? 'active' : ''}" data-rel-note="${n.id}" style="cursor:pointer;${selected === n.id ? 'background:var(--purple-50)' : ''}">
         <span style="font-size:13px">${n.content.slice(0, 80)}${n.content.length > 80 ? '…' : ''}</span>
         ${selected === n.id ? `<button class="btn btn-sm btn-primary" id="btn-confirm-rel">确认关联</button>` : ''}
       </div>
@@ -260,7 +271,7 @@ function showRelModal(noteId, filter) {
 
     document.getElementById('btn-confirm-rel')?.addEventListener('click', () => {
       if (!selected) return;
-      const type = document.getElementById('rel-type').value;
+      const type = getCSelectValue('rel-type') || 'support';
       createNoteRelation({ fromId: noteId, toId: selected, type });
       toast('关联已建立', 'success');
       closeModal();

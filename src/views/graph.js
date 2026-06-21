@@ -1,20 +1,22 @@
 import {
   getGoals, getSubtopics, getSources, getNotes, getNoteRelations
 } from '../store/db.js';
+import { cSelect, initCustomSelects } from '../utils/helpers.js';
 import { navigate } from '../app.js';
 
 export function renderGraph(filter = {}) {
   const goals = getGoals();
+  const goalOptions = [
+    { value: '', label: '全部目标' },
+    ...goals.map(g => ({ value: g.id, label: g.title })),
+  ];
   return `
     <div class="page-header">
       <div>
         <div class="page-title">知识图谱</div>
         <div class="page-subtitle">以目标为中心，查看知识网络</div>
       </div>
-      <select class="form-select" id="graph-goal-filter" style="width:220px">
-        <option value="">全部目标</option>
-        ${goals.map(g => `<option value="${g.id}" ${filter.goalId === g.id ? 'selected' : ''}>${g.title}</option>`).join('')}
-      </select>
+      ${cSelect('graph-goal-filter', goalOptions, filter.goalId || '', { style: 'width:220px' })}
     </div>
 
     <div class="graph-legend">
@@ -37,8 +39,10 @@ export function renderGraph(filter = {}) {
 }
 
 export function bindGraph(filter = {}) {
-  document.getElementById('graph-goal-filter')?.addEventListener('change', e => {
-    navigate('graph', { goalId: e.target.value || undefined });
+  initCustomSelects((id, value) => {
+    if (id === 'graph-goal-filter') {
+      navigate('graph', { goalId: value || undefined });
+    }
   });
 
   requestAnimationFrame(() => drawGraph(filter));

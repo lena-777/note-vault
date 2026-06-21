@@ -2,13 +2,24 @@ import {
   getSources, createSource, updateSource, deleteSource,
   getGoals, getNotes, getStats
 } from '../store/db.js';
-import { toast, formatDate, statusLabel, openModal, closeModal } from '../utils/helpers.js';
+import { toast, formatDate, statusLabel, openModal, closeModal, cSelect, initCustomSelects, getCSelectValue } from '../utils/helpers.js';
 import { navigate } from '../app.js';
 
 export function renderSources(filter = {}) {
   const goals = getGoals();
   const stats = getStats();
   let sources = getSources(filter.goalId);
+
+  const goalOptions = [
+    { value: '', label: '全部目标' },
+    ...goals.map(g => ({ value: g.id, label: g.title })),
+  ];
+  const statusOptions = [
+    { value: '', label: '全部状态' },
+    { value: 'unread',  label: '待读' },
+    { value: 'reading', label: '在读' },
+    { value: 'read',    label: '已读' },
+  ];
 
   return `
     <div class="page-header">
@@ -19,17 +30,9 @@ export function renderSources(filter = {}) {
       <button class="btn btn-primary" id="btn-new-source">+ 添加文章</button>
     </div>
 
-    <div class="flex gap-8 mb-16" style="flex-wrap:wrap">
-      <select class="form-select" id="filter-goal-source" style="width:200px">
-        <option value="">全部目标</option>
-        ${goals.map(g => `<option value="${g.id}" ${filter.goalId === g.id ? 'selected' : ''}>${g.title}</option>`).join('')}
-      </select>
-      <select class="form-select" id="filter-status-source" style="width:140px">
-        <option value="">全部状态</option>
-        <option value="unread">待读</option>
-        <option value="reading">在读</option>
-        <option value="read">已读</option>
-      </select>
+    <div class="flex gap-8 mb-16" style="flex-wrap:wrap;align-items:center">
+      ${cSelect('filter-goal-source', goalOptions, filter.goalId || '', { style: 'width:200px' })}
+      ${cSelect('filter-status-source', statusOptions, filter.status || '', { style: 'width:140px' })}
     </div>
 
     ${sources.length === 0 ? `
@@ -43,6 +46,11 @@ export function renderSources(filter = {}) {
           const nc = stats.noteCountBySource[src.id] || 0;
           const [label, cls] = statusLabel(src.status);
           const goal = goals.find(g => g.id === src.goalId);
+          const srcStatusOptions = [
+            { value: 'unread',  label: '待读' },
+            { value: 'reading', label: '在读' },
+            { value: 'read',    label: '已读' },
+          ];
           return `
             <div class="card">
               <div class="source-card">
@@ -57,12 +65,8 @@ export function renderSources(filter = {}) {
                     <span class="text-sm text-muted">${formatDate(src.updatedAt)}</span>
                   </div>
                 </div>
-                <div class="source-actions flex gap-8">
-                  <select class="form-select" style="width:100px;padding:4px 8px;font-size:12px" data-src-status="${src.id}">
-                    <option value="unread" ${src.status==='unread'?'selected':''}>待读</option>
-                    <option value="reading" ${src.status==='reading'?'selected':''}>在读</option>
-                    <option value="read" ${src.status==='read'?'selected':''}>已读</option>
-                  </select>
+                <div class="source-actions flex gap-8" style="align-items:center">
+                  ${cSelect('src-status-' + src.id, srcStatusOptions, src.status, { small: true, style: 'width:90px' })}
                   <button class="btn btn-sm btn-secondary btn-edit-source" data-id="${src.id}">编辑</button>
                   <button class="btn btn-sm btn-danger btn-delete-source" data-id="${src.id}">删除</button>
                 </div>
@@ -76,18 +80,19 @@ export function renderSources(filter = {}) {
 }
 
 export function bindSources(filter = {}) {
-  document.getElementById('btn-new-source')?.addEventListener('click', () => showSourceModal(null, filter.goalId));
-
-  document.getElementById('filter-goal-source')?.addEventListener('change', e => {
-    navigate('sources', { goalId: e.target.value || undefined });
-  });
-
-  document.querySelectorAll('[data-src-status]').forEach(sel => {
-    sel.addEventListener('change', () => {
-      updateSource(sel.dataset.srcStatus, { status: sel.value });
+  initCustomSelects((id, value) => {
+    if (id === 'filter-goal-source') {
+      navigate('sources', { goalId: value || undefined });
+    } else if (id === 'filter-status-source') {
+      navigate('sources', { ...filter, status: value || undefined });
+    } else if (id.startsWith('src-status-')) {
+      const srcId = id.replace('src-status-', '');
+      updateSource(srcId, { status: value });
       toast('已更新阅读状态', 'success');
-    });
+    }
   });
+
+  document.getElementById('btn-new-source')?.addEventListener('click', () => showSourceModal(null, filter.goalId));
 
   document.querySelectorAll('.btn-edit-source').forEach(btn => {
     btn.addEventListener('click', () => {
@@ -109,6 +114,16 @@ export function bindSources(filter = {}) {
 
 export function showSourceModal(source = null, defaultGoalId = null) {
   const goals = getGoals();
+  const goalOptions = [
+    { value: '', label: '不关联' },
+    ...goals.map(g => ({ value: g.id, label: g.title })),
+  ];
+  const statusOptions = [
+    { value: 'unread',  label: '待读' },
+    { value: 'reading', label: '在读' },
+    { value: 'read',    label: '已读' },
+  ];
+
   openModal(`
     <div class="modal-header">
       <span class="modal-title">${source ? '编辑文章' : '添加文章'}</span>
@@ -125,18 +140,11 @@ export function showSourceModal(source = null, defaultGoalId = null) {
     <div class="form-row">
       <div class="form-group">
         <label class="form-label">所属目标</label>
-        <select class="form-select" id="src-goal">
-          <option value="">不关联</option>
-          ${goals.map(g => `<option value="${g.id}" ${(source?.goalId || defaultGoalId) === g.id ? 'selected' : ''}>${g.title}</option>`).join('')}
-        </select>
+        ${cSelect('src-goal', goalOptions, source?.goalId || defaultGoalId || '', { style: 'width:100%' })}
       </div>
       <div class="form-group">
         <label class="form-label">阅读状态</label>
-        <select class="form-select" id="src-status">
-          <option value="unread" ${source?.status==='unread'?'selected':''}>待读</option>
-          <option value="reading" ${source?.status==='reading'?'selected':''}>在读</option>
-          <option value="read" ${source?.status==='read'?'selected':''}>已读</option>
-        </select>
+        ${cSelect('src-status', statusOptions, source?.status || 'unread', { style: 'width:100%' })}
       </div>
     </div>
     <div class="modal-footer">
@@ -145,14 +153,16 @@ export function showSourceModal(source = null, defaultGoalId = null) {
     </div>
   `);
 
+  initCustomSelects();
+
   document.getElementById('modal-close-btn').onclick = closeModal;
   document.getElementById('modal-cancel').onclick = closeModal;
   document.getElementById('modal-save-src').onclick = () => {
     const title = document.getElementById('src-title').value.trim();
     if (!title) { toast('请填写文章标题', 'error'); return; }
     const url = document.getElementById('src-url').value.trim();
-    const goalId = document.getElementById('src-goal').value || null;
-    const status = document.getElementById('src-status').value;
+    const goalId = getCSelectValue('src-goal') || null;
+    const status = getCSelectValue('src-status') || 'unread';
     if (source) {
       updateSource(source.id, { title, url, goalId, status });
       toast('已更新', 'success');
